@@ -106,6 +106,9 @@ describe('external-issuer JWT verification', () => {
     expect(info.sourceId).toBe('source-a');
     expect(info.allowedSources).toEqual(['source-a', 'infra-curated']);
     expect(typeof info.expiresAt).toBe('number');
+    // Audit identity of the exact gateway key — several keys can map to one
+    // client_id, so the request log needs the JWT sub, not just the client.
+    expect(info.externalSub).toBe('litellm-user-a');
   });
 
   test('email fallback maps when sub is unmapped', async () => {
@@ -113,6 +116,8 @@ describe('external-issuer JWT verification', () => {
     const info = (await provider.verifyAccessToken(token)) as unknown as CoreAuthInfo;
     expect(info.clientId).toBe('acl-client-b');
     expect(info.allowedSources).toEqual(['source-b']);
+    // The map matched on email, so email IS the audit identity here.
+    expect(info.externalSub).toBe('someone@example.com');
   });
 
   test('verified JWT with unmapped subject is rejected (fail closed)', async () => {

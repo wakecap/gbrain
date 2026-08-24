@@ -1015,10 +1015,12 @@ export class GBrainOAuthProvider implements OAuthServerProvider {
     token: string,
   ): Promise<SdkAuthInfo> {
     let clientId: string;
+    let externalSub: string;
     let exp: number | undefined;
     try {
       const verified = await verifier.verify(token);
       clientId = verified.clientId;
+      externalSub = verified.subject;
       exp = verified.payload.exp;
     } catch {
       // Detail (bad signature vs unmapped subject) stays server-side.
@@ -1067,6 +1069,9 @@ export class GBrainOAuthProvider implements OAuthServerProvider {
       sourceId: rowSourceId,
       allowedSources,
       boundSlugPrefixes,
+      // Audit identity of the exact gateway key (several keys can map to
+      // this client_id); serve-http writes it to mcp_request_log params.
+      externalSub,
       ...(rowSurface !== undefined ? { surface: rowSurface } : {}),
       ...(rowSurfaceSetBy !== undefined ? { surfaceSetBy: rowSurfaceSetBy } : {}),
     } as CoreAuthInfo as SdkAuthInfo;

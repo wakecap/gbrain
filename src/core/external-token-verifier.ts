@@ -66,10 +66,13 @@ export class ExternalTokenVerifier {
 
   /**
    * Verify a compact JWS and resolve it to a registered client_id.
+   * `subject` is the caller-map key that matched (`sub`, or `email` when the
+   * map matched on email) — the audit identity of the exact gateway key,
+   * since several keys can map to one client_id.
    * Throws ExternalTokenVerificationError on any failure — callers must
    * treat that as an invalid token, never fall through to another auth path.
    */
-  async verify(token: string): Promise<{ clientId: string; payload: JWTPayload }> {
+  async verify(token: string): Promise<{ clientId: string; subject: string; payload: JWTPayload }> {
     let payload: JWTPayload;
     try {
       ({ payload } = await jwtVerify(token, this.getKey, {
@@ -84,14 +87,17 @@ export class ExternalTokenVerifier {
     }
     const sub = typeof payload.sub === 'string' ? payload.sub : undefined;
     const email = typeof payload.email === 'string' ? payload.email : undefined;
-    const clientId =
-      (sub !== undefined ? this.config.callerMap[sub] : undefined) ??
-      (email !== undefined ? this.config.callerMap[email] : undefined);
-    if (clientId === undefined) {
+    const subject =
+      sub !== undefined && this.config.callerMap[sub] !== undefined
+        ? sub
+        : email !== undefined && this.config.callerMap[email] !== undefined
+          ? email
+          : undefined;
+    if (subject === undefined) {
       // Deliberately does not echo sub/email back to the caller.
       throw new ExternalTokenVerificationError('external token subject is not a mapped caller');
     }
-    return { clientId, payload };
+    return { clientId: this.config.callerMap[subject], subject, payload };
   }
 }
 
